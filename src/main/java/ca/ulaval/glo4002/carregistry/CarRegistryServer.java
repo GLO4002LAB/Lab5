@@ -1,13 +1,23 @@
 package ca.ulaval.glo4002.carregistry;
 
+import java.util.EnumSet;
+
+import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
+import javax.servlet.DispatcherType;
+
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.servlet.ServletContainer;
 
+import EntitymanagerContextFilter.EntityManagerContextFilter;
 import ca.ulaval.glo4002.carregistry.domain.CarOwner;
 import ca.ulaval.glo4002.carregistry.domain.CarRegistry;
+import ca.ulaval.glo4002.carregistry.persistence.EntityManagerFactoryProvider;
+import ca.ulaval.glo4002.carregistry.persistence.EntityManagerProvider;
+import ca.ulaval.glo4002.carregistry.persistence.HibernateCarRegistry;
 import ca.ulaval.glo4002.carregistry.persistence.InMemoryCarRegistry;
 
 public class CarRegistryServer {
@@ -20,10 +30,23 @@ public class CarRegistryServer {
 	        startServer();
 	    }
 
-		private void prefillDatabase() {
+		/*private void prefillDatabase() {
 			CarRegistry carRegistry = new InMemoryCarRegistry();
 			carRegistry.insert(new CarOwner("John Doe"));
 			carRegistry.insert(new CarOwner("Jane Doe"));
+		}*/
+		
+		private void prefillDatabase() {
+			EntityManagerFactory entityManagerFactory = EntityManagerFactoryProvider.getFactory();
+			EntityManager entityManager = entityManagerFactory.createEntityManager();
+			EntityManagerProvider.setEntityManager(entityManager);
+
+			CarRegistry carRegistry = new HibernateCarRegistry();
+			carRegistry.insert(new CarOwner("John Doe"));
+			carRegistry.insert(new CarOwner("Jane Doe"));
+
+			EntityManagerProvider.clearEntityManager();
+			entityManager.close();
 		}
 
 		private void startServer() {
@@ -31,6 +54,7 @@ public class CarRegistryServer {
 	 
 	        Server server = new Server(httpPort);
 	        ServletContextHandler servletContextHandler = new ServletContextHandler(server, "/");
+	        servletContextHandler.addFilter(EntityManagerContextFilter.class, "/*", EnumSet.of(DispatcherType.REQUEST));
 	        configurerJersey(servletContextHandler);
 			try {
 				server.start();
